@@ -1,0 +1,15 @@
+{
+  "name": "@rpgp-pqc/rpgp-wasm",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "rpgp_wasm_bg.wasm",
+    "rpgp_wasm.js",
+    "rpgp_wasm.d.ts"
+  ],
+  "main": "rpgp_wasm.js",
+  "types": "rpgp_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

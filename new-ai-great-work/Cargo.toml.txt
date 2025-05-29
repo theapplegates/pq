@@ -1,0 +1,11 @@
+# Add these dependencies to your Cargo.toml [dependencies] section
+
+# Additional required dependencies for the WASM build
+lazy_static = "1.4"
+hex = "0.4"
+chrono = { version = "0.4", features = ["serde", "wasm-bindgen"] }
+smallvec = "1.11"
+rand = "0.8"
+
+# Note: You may need to adjust rpgp dependency based on the actual repository structure
+# The exact features and version may need to be modified based on what's available

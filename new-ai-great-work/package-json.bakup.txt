@@ -1,0 +1,27 @@
+{
+  "name": "pgp-tool-with-rpgp-(real)",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:wasm && vite build",
+    "build:wasm": "./build-wasm.sh",
+    "build:wasm:copy": "./build-wasm.sh public/pkg/",
+    "preview": "vite preview",
+    "clean": "rm -rf pkg/ public/pkg/ dist/",
+    "setup": "npm run build:wasm:copy"
+  },
+  "dependencies": {
+    "react-dom": "^19.1.0",
+    "react": "^19.1.0",
+    "@heroicons/react": "^2.2.0",
+    "@headlessui/react": "^2.2.4",
+    "@google/genai": "^1.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0"
+  }
+}

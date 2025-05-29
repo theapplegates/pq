@@ -1,0 +1,11 @@
+/Users/thor3/Documents/rust-pgp/rpgp-wasm/target/wasm32-unknown-unknown/release/deps/libserdect-bb5171fdc2684206.rmeta: /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/lib.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/array.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/common.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/slice.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/../README.md
+
+/Users/thor3/Documents/rust-pgp/rpgp-wasm/target/wasm32-unknown-unknown/release/deps/libserdect-bb5171fdc2684206.rlib: /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/lib.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/array.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/common.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/slice.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/../README.md
+
+/Users/thor3/Documents/rust-pgp/rpgp-wasm/target/wasm32-unknown-unknown/release/deps/serdect-bb5171fdc2684206.d: /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/lib.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/array.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/common.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/slice.rs /Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/../README.md
+
+/Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/lib.rs:
+/Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/array.rs:
+/Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/common.rs:
+/Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/slice.rs:
+/Users/thor3/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serdect-0.3.0/src/../README.md:
