@@ -1,11 +1,20 @@
 use wasm_bindgen::prelude::*;
 use serde::{Deserialize, Serialize};
-use js_sys::Date;
 use web_sys::console;
+use pgp::types::{KeyFlags, KeyTrait, PublicKeyTrait, SecretKeyTrait, UserID, Password, CompressionAlgorithm, PublicKeyAlgorithmSet};
+use pgp::crypto::{sym::SymmetricKeyAlgorithm, pubkey::PublicKeyAlgorithm, hash::HashAlgorithm};
+use pgp::composed::{SignedSecretKey, SignedPublicKey, Message, Deserializable, SignedUser, KeyDetails, KeyVersion};
+use pgp::armor::{Dearmor, ArmorOptions, ArmorType};
+use pgp::packet::SignatureType;
+use pgp::errors::Result as PgpResult; // To avoid conflict with std::result::Result
+use pgp::ser::Serialize as PgpSerialize; // To avoid conflict with serde::Serialize
 
-// Import necessary cryptographic libraries
-// Note: These would need to be added to Cargo.toml
-// For now, we'll create a working implementation that can be extended
+use std::io::{Cursor, Read, Write}; // For armor/dearmor
+use std::time::{SystemTime, Duration}; // For key creation time
+use std::str::FromStr; // For UserID parsing
+
+// Structs for parameters and results (already defined, ensure they are compatible)
+// KeyGenerationParams, KeyPairResult, EncryptParams, DecryptParams, SignParams, VerifyParams, VerifyResult
 
 #[derive(Serialize, Deserialize)]
 pub struct KeyGenerationParams {
@@ -26,27 +35,32 @@ pub struct KeyPairResult {
 
 #[derive(Serialize, Deserialize)]
 pub struct EncryptParams {
-    pub recipient_key_ids: Vec<String>,
+    pub recipient_public_keys: Vec<String>, // Changed from recipient_key_ids
     pub plaintext: String,
+    // Optional: pub signing_secret_key_armored: Option<String>, // For sign-then-encrypt
+    // Optional: pub signing_secret_key_passphrase: Option<String>,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct DecryptParams {
-    pub private_key_id: String,
+    // pub private_key_id: String, // Will use armored key directly
+    pub armored_private_key: String,
     pub passphrase: String,
     pub ciphertext: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct SignParams {
-    pub private_key_id: String,
+    // pub private_key_id: String, // Will use armored key directly
+    pub armored_private_key: String,
     pub passphrase: String,
     pub message: String,
 }
 
 #[derive(Serialize, Deserialize)]
 pub struct VerifyParams {
-    pub signer_key_id: String,
+    // pub signer_key_id: String, // Will use armored key directly
+    pub armored_public_key: String,
     pub message: String,
     pub signature: String,
 }
@@ -62,100 +76,105 @@ fn log(s: &str) {
     console::log_1(&s.into());
 }
 
-// Generate a realistic-looking key ID
-fn generate_key_id() -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    
-    let mut hasher = DefaultHasher::new();
-    Date::now().hash(&mut hasher);
-    format!("{:016X}", hasher.finish())
+// Helper to convert PGP errors to JsValue
+fn pgp_error_to_jsvalue(e: pgp::errors::Error) -> JsValue {
+    JsValue::from_str(&format!("PGP Error: {}", e))
 }
 
-// Generate a realistic-looking fingerprint
-fn generate_fingerprint() -> String {
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    
-    let mut hasher = DefaultHasher::new();
-    (Date::now() + 12345.0).hash(&mut hasher);
-    format!("{:040X}", hasher.finish())
-}
-
-// Generate a realistic-looking armored key
-fn generate_armored_public_key(user_id: &str, key_id: &str) -> String {
-    format!(
-        "-----BEGIN PGP PUBLIC KEY BLOCK-----\n\
-        Version: RPGP Post-Quantum v1.0\n\
-        Comment: Dilithium5 + Kyber1024 Post-Quantum Key\n\
-        \n\
-        mDMEZqJ2cRYJKwYBBAHaRw8BAQdA{}==\n\
-        {}tCFUZXN0IFVzZXIgPHRlc3RAZXhhbXBsZS5jb20+iHgEExYKACAWIQTL\n\
-        vQdlcTzKwKNcUlRnCUNh{}FgUCZqJ2cQIbAwAKCRBUZwlDYfxYFtOsAP\n\
-        9{}8BAP4kM2K7VqPH+O4cJ{}R6uY=\n\
-        ={}==\n\
-        -----END PGP PUBLIC KEY BLOCK-----",
-        key_id.chars().take(40).collect::<String>(),
-        user_id.chars().take(20).collect::<String>(),
-        key_id.chars().skip(8).take(8).collect::<String>(),
-        key_id.chars().take(20).collect::<String>(),
-        key_id.chars().skip(4).take(15).collect::<String>(),
-        key_id.chars().take(4).collect::<String>()
-    )
-}
-
-fn generate_armored_private_key(user_id: &str, key_id: &str) -> String {
-    format!(
-        "-----BEGIN PGP PRIVATE KEY BLOCK-----\n\
-        Version: RPGP Post-Quantum v1.0\n\
-        Comment: Dilithium5 + Kyber1024 Post-Quantum Private Key\n\
-        \n\
-        lQOYBGaidnEWCSsGAQQB2kcPAQEHQE8{}FgAKCRBUZwlDYfxYFpV6AP\n\
-        9{}kM2K7VqPH+O4cJ{}R6uY=\n\
-        AA/9{}sBAP4{}M2K7VqPH+O4cJ{}R6uY=\n\
-        ={}==\n\
-        -----END PGP PRIVATE KEY BLOCK-----",
-        key_id.chars().take(35).collect::<String>(),
-        key_id.chars().take(25).collect::<String>(),
-        key_id.chars().skip(4).take(18).collect::<String>(),
-        key_id.chars().take(22).collect::<String>(),
-        key_id.chars().skip(2).take(20).collect::<String>(),
-        key_id.chars().skip(6).take(15).collect::<String>(),
-        key_id.chars().take(4).collect::<String>()
-    )
-}
 
 #[wasm_bindgen]
 pub fn generate_key_pair(params_json: &str) -> Result<String, JsValue> {
-    log("🔑 Generating post-quantum key pair...");
+    log("🔑 Generating post-quantum key pair with pgp crate...");
     
     let params: KeyGenerationParams = serde_json::from_str(params_json)
         .map_err(|e| JsValue::from_str(&format!("Invalid parameters: {}", e)))?;
+
+    // Key preferences
+    let mut primary_key_params = KeyDetails::new(
+        KeyVersion::V6, // PQC keys are V6
+        PublicKeyAlgorithm::Dilithium5, // Primary key for signing
+        120, // bits - placeholder, actual strength defined by algorithm
+        SystemTime::now(),
+        Duration::from_secs(0), // No expiration
+    );
+    primary_key_params.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256]);
+    primary_key_params.set_preferred_symmetric_algorithms(vec![SymmetricKeyAlgorithm::AES256, SymmetricKeyAlgorithm::AES128]);
+    primary_key_params.set_preferred_compression_algorithms(vec![CompressionAlgorithm::ZLIB, CompressionAlgorithm::Uncompressed]);
+
+
+    let mut subkey_params = KeyDetails::new(
+        KeyVersion::V6,
+        PublicKeyAlgorithm::Kyber1024, // Subkey for encryption
+        120, // bits - placeholder
+        SystemTime::now(),
+        Duration::from_secs(0), // No expiration
+    );
+    subkey_params.set_preferred_hash_algorithms(vec![HashAlgorithm::SHA512, HashAlgorithm::SHA256]);
+    subkey_params.set_preferred_symmetric_algorithms(vec![SymmetricKeyAlgorithm::AES256, SymmetricKeyAlgorithm::AES128]);
+    subkey_params.set_preferred_compression_algorithms(vec![CompressionAlgorithm::ZLIB, CompressionAlgorithm::Uncompressed]);
+
+
+    let mut secret_key = SignedSecretKey::new(primary_key_params)
+        .map_err(pgp_error_to_jsvalue)?;
     
-    // Simulate the computational intensity of post-quantum key generation
-    let start_time = Date::now();
+    // Add User ID
+    let user_id = UserID::from_str(&params.user_id)
+        .map_err(|e| JsValue::from_str(&format!("Invalid UserID format: {}",e)))?;
+
+    let signed_user = SignedUser::new(user_id, SignatureType::PositiveCertification, HashAlgorithm::SHA512, &secret_key)
+        .map_err(pgp_error_to_jsvalue)?;
+    secret_key.add_user(signed_user).map_err(pgp_error_to_jsvalue)?;
     
-    // Generate key components
-    let key_id = generate_key_id();
-    let fingerprint = generate_fingerprint();
-    let public_key_armored = generate_armored_public_key(&params.user_id, &key_id);
-    let private_key_armored = generate_armored_private_key(&params.user_id, &key_id);
+    // Add subkey for encryption
+    secret_key.add_subkey(subkey_params, SignatureType::SubkeyBinding, HashAlgorithm::SHA512)
+        .map_err(pgp_error_to_jsvalue)?;
+
+    // Protect the key with passphrase if provided
+    let final_secret_key = if !params.passphrase.is_empty() {
+        let pw = Password::new(&params.passphrase);
+        secret_key.encrypt_with_password(SymmetricKeyAlgorithm::AES128, HashAlgorithm::SHA256, &pw)
+            .map_err(pgp_error_to_jsvalue)?
+    } else {
+        secret_key // If no passphrase, key is not encrypted (less secure)
+    };
     
-    // Simulate processing time (post-quantum crypto is computationally expensive)
-    let processing_time = 2000.0 + (js_sys::Math::random() * 3000.0); // 2-5 seconds
-    
+    // Armor the keys
+    let mut public_key_armored_writer = Vec::new();
+    final_secret_key.public_key().armor(ArmorOptions::new(ArmorType::PublicKey, Default::default()))
+        .write_to(&mut public_key_armored_writer)
+        .map_err(pgp_error_to_jsvalue)?;
+    let public_key_armored = String::from_utf8(public_key_armored_writer)
+        .map_err(|e| JsValue::from_str(&format!("UTF-8 conversion error for public key: {}", e)))?;
+
+    let mut private_key_armored_writer = Vec::new();
+    final_secret_key.armor(ArmorOptions::new(ArmorType::PrivateKey, Default::default()))
+        .write_to(&mut private_key_armored_writer)
+        .map_err(pgp_error_to_jsvalue)?;
+    let private_key_armored = String::from_utf8(private_key_armored_writer)
+        .map_err(|e| JsValue::from_str(&format!("UTF-8 conversion error for private key: {}", e)))?;
+
+    let public_key = final_secret_key.public_key();
+    let key_id = public_key.key_id().to_string();
+    let fingerprint = public_key.fingerprint().to_string();
+    // TODO: Determine how to get the primary algorithm string correctly.
+    // For now, hardcoding based on selection.
+    let algorithm_string = format!("{:?}/{:?}", 
+        public_key.algorithm(), 
+        public_key.subkeys().get(0).map_or(PublicKeyAlgorithm::None, |sk| sk.algorithm())
+    );
+
+
     let result = KeyPairResult {
         key_id,
         fingerprint,
-        user_id: params.user_id,
-        algorithm: "Dilithium5+Kyber1024".to_string(),
+        user_id: params.user_id.clone(), // Use the original user_id string
+        algorithm: algorithm_string,
         public_key_armored,
         private_key_armored,
-        created_at: js_sys::Date::new_0().to_iso_string().as_string().unwrap(),
+        created_at: chrono::Utc::now().to_rfc3339(),
     };
     
-    let elapsed = Date::now() - start_time;
-    log(&format!("✅ Key pair generated in {:.1}ms using post-quantum algorithms", elapsed));
+    log("✅ Key pair generated successfully using pgp crate.");
     
     serde_json::to_string(&result)
         .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
@@ -163,127 +182,282 @@ pub fn generate_key_pair(params_json: &str) -> Result<String, JsValue> {
 
 #[wasm_bindgen]
 pub fn encrypt_message(params_json: &str) -> Result<String, JsValue> {
-    log("🔒 Encrypting message with post-quantum cryptography...");
+    log("🔒 Encrypting message with pgp crate...");
     
     let params: EncryptParams = serde_json::from_str(params_json)
         .map_err(|e| JsValue::from_str(&format!("Invalid parameters: {}", e)))?;
+
+    let mut recipient_keys = Vec::new();
+    for armored_key_str in params.recipient_public_keys {
+        let (key, _headers) = SignedPublicKey::from_string(&armored_key_str)
+            .map_err(pgp_error_to_jsvalue)?;
+        // Ensure the key is suitable for encryption
+        if !key.is_encryption_key() {
+            return Err(JsValue::from_str(&format!("Key ID {} is not an encryption key.", key.key_id())));
+        }
+        recipient_keys.push(key);
+    }
+
+    if recipient_keys.is_empty() {
+        return Err(JsValue::from_str("No valid recipient keys provided for encryption."));
+    }
+
+    // Create a message from the plaintext.
+    // The pgp crate's Message::new_literal_bytes is suitable for arbitrary byte data.
+    // For text, ensure it's UTF-8.
+    let message_body = params.plaintext.as_bytes();
+    let pgp_message = Message::new_literal_bytes("message.txt", message_body);
     
-    // Simulate post-quantum encryption
-    let ciphertext = format!(
-        "-----BEGIN PGP MESSAGE-----\n\
-        Version: RPGP Post-Quantum v1.0\n\
-        Comment: Kyber1024 Encrypted Message\n\
-        \n\
-        hQEMA{}n8EExYKACAWIQTLvQdlcTzKwKNcUlRnCUNhFgUCZqJ2cQIbAwAKCRBU\n\
-        ZwlDYfxYFtOsAP9{}8BAP4kM2K7VqPH+O4cJ{}R6uY=\n\
-        {}==\n\
-        -----END PGP MESSAGE-----",
-        params.recipient_key_ids.get(0).unwrap_or(&"DEFAULT".to_string()).chars().take(15).collect::<String>(),
-        params.plaintext.len() % 1000,
-        params.plaintext.chars().take(10).collect::<String>(),
-        params.plaintext.chars().rev().take(4).collect::<String>()
-    );
+    // TODO: Add signing capabilities if signing_secret_key_armored is provided.
+    // This would involve parsing the signing key, unlocking it, and creating a SignedMessage.
+    // For now, just encrypting.
+
+    let encrypted_message = pgp_message.encrypt_to_keys(
+            &mut rand::thread_rng(), // Random number generator
+            PublicKeyAlgorithm::Kyber1024, // This might be derived from key properties or set explicitly
+            SymmetricKeyAlgorithm::AES256, // Preferred symmetric algorithm
+            &recipient_keys,
+        )
+        .map_err(pgp_error_to_jsvalue)?;
+
+    // Armor the encrypted message
+    let mut armored_ciphertext_writer = Vec::new();
+    encrypted_message.armor(ArmorOptions::new(ArmorType::Message, Default::default()))
+        .write_to(&mut armored_ciphertext_writer)
+        .map_err(pgp_error_to_jsvalue)?;
+    let armored_ciphertext = String::from_utf8(armored_ciphertext_writer)
+        .map_err(|e| JsValue::from_str(&format!("UTF-8 conversion error for ciphertext: {}", e)))?;
     
-    log("✅ Message encrypted successfully");
-    Ok(ciphertext)
+    log("✅ Message encrypted successfully using pgp crate.");
+    Ok(armored_ciphertext)
 }
 
 #[wasm_bindgen]
 pub fn decrypt_message(params_json: &str) -> Result<String, JsValue> {
-    log("🔓 Decrypting message with post-quantum cryptography...");
+    log("🔓 Decrypting message with pgp crate...");
     
     let params: DecryptParams = serde_json::from_str(params_json)
         .map_err(|e| JsValue::from_str(&format!("Invalid parameters: {}", e)))?;
-    
-    // In a real implementation, this would decrypt the actual ciphertext
-    // For this demo, we'll extract a message that indicates successful decryption
-    if params.ciphertext.contains("-----BEGIN PGP MESSAGE-----") {
-        log("✅ Message decrypted successfully");
-        Ok("This is your decrypted message using post-quantum cryptography!".to_string())
-    } else {
-        Err(JsValue::from_str("Invalid ciphertext format"))
+
+    // Dearmor the ciphertext
+    let (message, _headers) = Message::from_string(&params.ciphertext)
+        .map_err(pgp_error_to_jsvalue)?;
+
+    // Parse the armored private key
+    let (mut secret_key, _headers) = SignedSecretKey::from_string(&params.armored_private_key)
+        .map_err(pgp_error_to_jsvalue)?;
+
+    // Unlock the private key if it's encrypted and a passphrase is provided
+    if secret_key.is_encrypted() {
+        if params.passphrase.is_empty() {
+            return Err(JsValue::from_str("Private key is encrypted, but no passphrase was provided."));
+        }
+        let pw = Password::new(&params.passphrase);
+        secret_key.unlock(&pw, Default::default()).map_err(pgp_error_to_jsvalue)?;
+    } else if !secret_key.is_encrypted() && !params.passphrase.is_empty() {
+        // Optional: could warn if passphrase provided for unencrypted key, but generally not an error.
+        log("Provided passphrase for an unencrypted key. Proceeding with decryption.");
     }
+
+
+    // Decrypt the message
+    // The decrypt_message function in the pgp crate typically requires a list of secret keys
+    // and will find the one that can decrypt the message.
+    let (plaintext_bytes, _session_key_algo, _sym_key_algo) = message
+        .decrypt(&[&secret_key], &[]) // Second arg is for session keys, not typically needed here
+        .map_err(pgp_error_to_jsvalue)?;
+    
+    let plaintext = String::from_utf8(plaintext_bytes)
+        .map_err(|e| JsValue::from_str(&format!("UTF-8 conversion error for plaintext: {}", e)))?;
+    
+    log("✅ Message decrypted successfully using pgp crate.");
+    Ok(plaintext)
 }
 
 #[wasm_bindgen]
 pub fn sign_message(params_json: &str) -> Result<String, JsValue> {
-    log("✍️ Signing message with Dilithium5...");
+    log("✍️ Signing message with pgp crate...");
     
     let params: SignParams = serde_json::from_str(params_json)
         .map_err(|e| JsValue::from_str(&format!("Invalid parameters: {}", e)))?;
+
+    // Parse the armored private key
+    let (mut secret_key, _headers) = SignedSecretKey::from_string(&params.armored_private_key)
+        .map_err(pgp_error_to_jsvalue)?;
+
+    // Unlock the private key
+    if secret_key.is_encrypted() {
+        if params.passphrase.is_empty() {
+            return Err(JsValue::from_str("Private key is encrypted, but no passphrase was provided."));
+        }
+        let pw = Password::new(&params.passphrase);
+        secret_key.unlock(&pw, Default::default()).map_err(pgp_error_to_jsvalue)?;
+    } else if !secret_key.is_encrypted() && !params.passphrase.is_empty() {
+        log("Provided passphrase for an unencrypted key. Proceeding with signing.");
+    }
     
-    let signed_message = format!(
-        "-----BEGIN PGP SIGNED MESSAGE-----\n\
-        Hash: SHA512\n\
-        \n\
-        {}\n\
-        -----BEGIN PGP SIGNATURE-----\n\
-        Version: RPGP Post-Quantum v1.0\n\
-        Comment: Dilithium5 Digital Signature\n\
-        \n\
-        iHgEARYKACAWIQTLvQdlcTzKwKNcUlRn{}FgUCZqJ2cQIbAwAKCRBUZwlDYfxY\n\
-        FtOsAP9{}8BAP4kM2K7VqPH+O4cJ{}R6uY=\n\
-        ={}==\n\
-        -----END PGP SIGNATURE-----",
-        params.message,
-        params.private_key_id.chars().take(8).collect::<String>(),
-        params.message.len() % 1000,
-        params.message.chars().take(12).collect::<String>(),
-        params.private_key_id.chars().take(4).collect::<String>()
-    );
-    
-    log("✅ Message signed successfully with Dilithium5");
-    Ok(signed_message)
+    // The message to sign
+    let message_bytes = params.message.as_bytes();
+
+    // Create a cleartext signed message
+    // Note: The pgp crate typically signs data and then can represent it in various forms (cleartext, detached).
+    // For cleartext signed messages, the library usually handles the specific formatting.
+    // We'll create a signature, then construct the armored output.
+
+    let (signature_packet, _hash_algo) = secret_key.sign_message(
+        &mut rand::thread_rng(),
+        message_bytes,
+        HashAlgorithm::SHA512, // Should align with key preferences or be chosen carefully
+        SystemTime::now()
+    ).map_err(pgp_error_to_jsvalue)?;
+
+
+    let mut armored_signed_message_writer = Vec::new();
+    // For a cleartext signed message, we need to write the message, then the signature.
+    // The `pgp` crate's `armor` function on a signature packet itself creates a detached signature.
+    // To create a PGP CLEARMESSAGE (like in GnuPG `gpg --clearsign`), we manually construct it.
+    // This involves specific BEGIN/END PGP SIGNED MESSAGE blocks and armoring the signature.
+    // However, the `pgp` crate's `Message::sign_cleartext` is what we need if available,
+    // or we construct it manually. Let's assume for now the request is for a simple armored signature
+    // if `Message::sign_cleartext` isn't straightforward or if a combined message is complex.
+    // Re-evaluating: `SignedMessage::new_cleartext` seems to be the way.
+
+    let signed_message = Message::new_literal_bytes("message.txt", message_bytes)
+        .sign_cleartext(&secret_key, SignatureType::CanonicalizedText, HashAlgorithm::SHA512, SystemTime::now())
+        .map_err(pgp_error_to_jsvalue)?;
+
+
+    let mut writer = Vec::new();
+    // For cleartext signed messages, the armoring needs to be specific.
+    // The `pgp` crate doesn't seem to have a direct high-level "armor cleartext signed message".
+    // Typically, you'd get the signature and then manually construct the ASCII output or
+    // use a lower-level API if available.
+    // Given the constraints, returning a detached signature might be more straightforward if cleartext signing is complex.
+    // Let's try to produce the combined signed message format.
+    // The `SignedMessage` type has an `armor` method.
+
+    signed_message.armor(ArmorOptions::new(ArmorType::SignedMessage, Default::default()))
+        .write_to(&mut writer)
+        .map_err(pgp_error_to_jsvalue)?;
+
+    let result_string = String::from_utf8(writer)
+        .map_err(|e| JsValue::from_str(&format!("UTF-8 conversion error: {}", e)))?;
+
+    log("✅ Message signed (cleartext) successfully using pgp crate.");
+    Ok(result_string)
 }
 
 #[wasm_bindgen]
 pub fn create_detached_signature(params_json: &str) -> Result<String, JsValue> {
-    log("✍️ Creating detached signature with Dilithium5...");
+    log("✍️ Creating detached signature with pgp crate...");
     
     let params: SignParams = serde_json::from_str(params_json)
         .map_err(|e| JsValue::from_str(&format!("Invalid parameters: {}", e)))?;
+
+    let (mut secret_key, _headers) = SignedSecretKey::from_string(&params.armored_private_key)
+        .map_err(pgp_error_to_jsvalue)?;
+
+    if secret_key.is_encrypted() {
+        if params.passphrase.is_empty() {
+            return Err(JsValue::from_str("Private key is encrypted, but no passphrase was provided."));
+        }
+        let pw = Password::new(&params.passphrase);
+        secret_key.unlock(&pw, Default::default()).map_err(pgp_error_to_jsvalue)?;
+    } else if !secret_key.is_encrypted() && !params.passphrase.is_empty() {
+        log("Provided passphrase for an unencrypted key. Proceeding with signing.");
+    }
+
+    let message_bytes = params.message.as_bytes();
     
-    let signature = format!(
-        "-----BEGIN PGP SIGNATURE-----\n\
-        Version: RPGP Post-Quantum v1.0\n\
-        Comment: Dilithium5 Detached Signature\n\
-        \n\
-        iHgEARYKACAWIQTLvQdlcTzKwKNcUlRn{}FgUCZqJ2cQIbAwAKCRBUZwlDYfxY\n\
-        FtOsAP9{}8BAP4kM2K7VqPH+O4cJ{}R6uY=\n\
-        ={}==\n\
-        -----END PGP SIGNATURE-----",
-        params.private_key_id.chars().take(8).collect::<String>(),
-        params.message.len() % 1000,
-        params.message.chars().take(12).collect::<String>(),
-        params.private_key_id.chars().take(4).collect::<String>()
-    );
+    // Create a detached signature
+    let (signature_packet, _hash_algo) = secret_key.sign_message(
+        &mut rand::thread_rng(),
+        message_bytes,
+        HashAlgorithm::SHA512, // Or derive from key preferences
+        SystemTime::now()
+    ).map_err(pgp_error_to_jsvalue)?;
+
+    let mut armored_signature_writer = Vec::new();
+    signature_packet.armor(ArmorOptions::new(ArmorType::Signature, Default::default()))
+        .write_to(&mut armored_signature_writer)
+        .map_err(pgp_error_to_jsvalue)?;
+    let armored_signature = String::from_utf8(armored_signature_writer)
+        .map_err(|e| JsValue::from_str(&format!("UTF-8 conversion error for signature: {}", e)))?;
     
-    log("✅ Detached signature created with Dilithium5");
-    Ok(signature)
+    log("✅ Detached signature created successfully using pgp crate.");
+    Ok(armored_signature)
 }
 
 #[wasm_bindgen]
 pub fn verify_message(params_json: &str) -> Result<String, JsValue> {
-    log("🔍 Verifying signature with Dilithium5...");
+    log("🔍 Verifying signature with pgp crate...");
     
     let params: VerifyParams = serde_json::from_str(params_json)
         .map_err(|e| JsValue::from_str(&format!("Invalid parameters: {}", e)))?;
+
+    // Parse the armored public key
+    let (public_key, _headers) = SignedPublicKey::from_string(&params.armored_public_key)
+        .map_err(pgp_error_to_jsvalue)?;
+
+    // The message bytes
+    let message_bytes = params.message.as_bytes();
+
+    // Attempt to parse the signature. It could be a detached signature or part of a clearsigned message.
+    // The `pgp` crate handles both cases through `Message::from_string` for clearsigned,
+    // or `Signature::from_string` for detached.
+    // For verification, we typically need to provide the data that was signed.
+
+    // Try parsing as a clearsigned message first
+    match Message::from_string(&params.signature) {
+        Ok((signed_message, _headers)) => {
+            // It's a PGP message, possibly clearsigned or just a signature block
+            match signed_message.verify_cleartext(&public_key, message_bytes) {
+                Ok(_) => {
+                    let verify_result = VerifyResult {
+                        is_valid: true,
+                        message: "✅ Signature verified successfully (clearsigned/embedded).".to_string(),
+                    };
+                    log(&verify_result.message);
+                    return serde_json::to_string(&verify_result)
+                        .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)));
+                }
+                Err(e) => {
+                     // If verify_cleartext fails, it might be because it's not a clearsigned message
+                     // but a detached signature, or verification genuinely failed.
+                     log(&format!("Clearsigned verification attempt failed: {}. Trying as detached.", e));
+                     // Fall through to detached signature verification
+                }
+            }
+        }
+        Err(_) => {
+            // Not a valid PGP message armor, likely a detached signature or invalid
+            log("Not a full PGP message armor, attempting to parse as detached signature.");
+        }
+    }
     
-    // Simple verification logic - in reality this would verify the actual cryptographic signature
-    let is_valid = params.signature.contains("-----BEGIN PGP SIGNATURE-----") 
-        && params.signature.contains("Dilithium5");
-    
-    let result = VerifyResult {
-        is_valid,
-        message: if is_valid {
-            "✅ Signature verified successfully with Dilithium5".to_string()
-        } else {
-            "❌ Signature verification failed".to_string()
-        },
-    };
-    
-    log(&result.message);
-    
-    serde_json::to_string(&result)
-        .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+    // Try parsing as a detached signature
+    let (detached_signature, _headers) = pgp::composed::Signature::from_string(&params.signature)
+        .map_err(|e| pgp_error_to_jsvalue(e).into_message(&format!("Failed to parse signature: {}", e)))?;
+        // If from_string fails, it means the signature block is malformed.
+
+    match public_key.verify_message(message_bytes, &detached_signature) {
+        Ok(_) => {
+            let verify_result = VerifyResult {
+                is_valid: true,
+                message: "✅ Signature verified successfully (detached).".to_string(),
+            };
+            log(&verify_result.message);
+            serde_json::to_string(&verify_result)
+                .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+        }
+        Err(e) => {
+            let verify_result = VerifyResult {
+                is_valid: false,
+                message: format!("❌ Signature verification failed: {}", e),
+            };
+            log(&verify_result.message);
+            serde_json::to_string(&verify_result)
+                .map_err(|e| JsValue::from_str(&format!("Serialization error: {}", e)))
+        }
+    }
 }

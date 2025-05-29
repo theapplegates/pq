@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 wasm-bindgen = "0.2"
@@ -21,6 +21,8 @@ hex = "0.4"
 chrono = { version = "0.4", features = ["serde", "wasm-bindgen"] }
 smallvec = "1.11"
 rand = "0.8"
+getrandom = { version = "0.2", features = ["js"] }
+pgp = { version = "0.16.0", default-features = false, features = ["pqc", "wasm"] }
 
 [profile.release]
 opt-level = "s"

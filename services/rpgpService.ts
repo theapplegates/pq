@@ -1,13 +1,30 @@
 import { RpgpPublicKey, RpgpKeyPair, GenerateKeyParams, EncryptParams, DecryptParams, SignParams, VerifyParams } from '../types';
 import { storageService } from './storageService';
 
+// WebAssembly module interface
+interface RPGPWasm {
+  generate_key_pair(params: any): Promise<any>;
+  get_public_key(keyId: string): Promise<any>;
+  get_all_public_keys(): Promise<any>;
+  encrypt_message(params: any): Promise<string>;
+  decrypt_message(params: any): Promise<string>;
+  sign_message(params: any): Promise<string>;
+  create_detached_signature(params: any): Promise<string>;
+  verify_message(params: any): Promise<any>;
+}
+
 class RPGPService {
-  private wasm: any = null;
+  private wasm: RPGPWasm | null = null;
   private initPromise: Promise<void> | null = null;
 
   private async initializeWasm(): Promise<void> {
-    if (this.wasm) return;
-    if (this.initPromise) return this.initPromise;
+    if (this.wasm) {
+      return;
+    }
+
+    if (this.initPromise) {
+      return this.initPromise;
+    }
 
     this.initPromise = this.loadWasm();
     return this.initPromise;
@@ -15,205 +32,335 @@ class RPGPService {
 
   private async loadWasm(): Promise<void> {
     try {
+      // Import the WebAssembly module
+      // Note: The path should match where you place the built WASM files
       const wasmModule = await import('../pkg/rpgp_wasm.js');
-      await wasmModule.default();
+      await wasmModule.default(); // Initialize the WASM module
       
+      this.wasm = {
+        generate_key_pair: wasmModule.generate_key_pair,
+        get_public_key: wasmModule.get_public_key,
+        get_all_public_keys: wasmModule.get_all_public_keys,
+        encrypt_message: wasmModule.encrypt_message,
+        decrypt_message: wasmModule.decrypt_message,
+        sign_message: wasmModule.sign_message,
+        create_detached_signature: wasmModule.create_detached_signature,
+        verify_message: wasmModule.verify_message,
+      };
+
       console.log('✅ RPGP WebAssembly module loaded successfully with post-quantum cryptography support');
-      console.log('Available WASM functions:', Object.keys(wasmModule));
-      
-      this.wasm = wasmModule;
     } catch (error) {
       console.error('❌ Failed to load RPGP WebAssembly module:', error);
-      this.wasm = null;
+      throw new Error(
+        'Failed to initialize RPGP WebAssembly module. Please ensure the WASM files are built and accessible. ' +
+        'Run the build script to generate the WebAssembly module.'
+      );
     }
   }
 
   async generateKeyPair(params: GenerateKeyParams): Promise<RpgpKeyPair> {
     await this.initializeWasm();
     
+    if (!this.wasm) {
+      throw new Error('RPGP WebAssembly module not initialized');
+    }
+
+    if (!params.userId.match(/^[^<]+<[^@]+@[^>]+>$/)) {
+      throw new Error('Invalid User ID format. Expected "Name <email@example.com>".');
+    }
+
     if (!params.passphrase || params.passphrase.length < 8) {
       throw new Error('Passphrase is required and must be at least 8 characters long for security.');
     }
 
-    console.log('🔑 Generating post-quantum key pair (this may take 5-15 seconds)...');
-    const startTime = Date.now();
+    try {
+      const result = await this.wasm.generate_key_pair({
+        user_id: params.userId,
+        passphrase: params.passphrase,
+      });
 
-    // Simulate post-quantum key generation delay (real crypto is slow!)
-    await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 5000));
+      const keyPair: RpgpKeyPair = {
+        keyId: result.key_id,
+        fingerprint: result.fingerprint,
+        userId: result.user_id,
+        algorithm: result.algorithm,
+        publicKeyArmored: result.public_key_armored,
+        privateKeyArmored: result.private_key_armored,
+        createdAt: new Date(result.created_at),
+      };
 
-    // Generate realistic key components
-    const keyId = this.generateKeyId();
-    const fingerprint = this.generateFingerprint();
-    const publicKeyArmored = this.generateArmoredPublicKey(params.userId, keyId);
-    const privateKeyArmored = this.generateArmoredPrivateKey(params.userId, keyId);
+      // Store the key pair in browser storage
+      await storageService.storeKeyPair(keyPair, params.passphrase);
 
-    const keyPair: RpgpKeyPair = {
-      keyId,
-      fingerprint,
-      userId: params.userId,
-      algorithm: 'Dilithium5+Kyber1024',
-      publicKeyArmored,
-      privateKeyArmored,
-      createdAt: new Date(),
-    };
-
-    const elapsed = Date.now() - startTime;
-    console.log(`✅ Post-quantum key pair generated in ${elapsed}ms using Dilithium5+Kyber1024`);
-
-    // Store the key pair
-    await storageService.storeKeyPair(keyPair, params.passphrase);
-    return keyPair;
-  }
-
-  private generateKeyId(): string {
-    const chars = '0123456789ABCDEF';
-    let result = '';
-    for (let i = 0; i < 16; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      return keyPair;
+    } catch (error) {
+      console.error('Key generation failed:', error);
+      throw new Error(`Failed to generate key pair: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
-    return result;
-  }
-
-  private generateFingerprint(): string {
-    const chars = '0123456789ABCDEF';
-    let result = '';
-    for (let i = 0; i < 40; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-  }
-
-  private generateArmoredPublicKey(userId: string, keyId: string): string {
-    const randomData = Array.from({length: 4}, () => 
-      Array.from({length: 40}, () => 
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-          .charAt(Math.floor(Math.random() * 64))
-      ).join('')
-    ).join('\n');
-
-    const userIdEncoded = btoa(userId).slice(0, 20);
-
-    return `-----BEGIN PGP PUBLIC KEY BLOCK-----
-Version: RPGP Post-Quantum v1.0
-Comment: Dilithium5 + Kyber1024 Post-Quantum Key
-
-mQINBGaidnEBEADK${keyId.slice(0, 8)}Dilithium5PostQuantumKey${keyId.slice(8)}
-${randomData}
-tCF${userIdEncoded}iHgEExYKACAWIQTL
-vQdlcTzKwKNcUlRnCUNh${keyId.slice(0, 8)}FgUCZqJ2cQIbAwAKCRBUZwlDYfxY
-FtOsAP9${keyId.slice(0, 12)}PostQuantumCrypto${keyId.slice(12)}8BAP4kM2K7VqPH
-+O4cJ${keyId.slice(0, 8)}PostQuantum${keyId.slice(8)}R6uY=
-=${keyId.slice(0, 4)}==
------END PGP PUBLIC KEY BLOCK-----`;
-  }
-
-  private generateArmoredPrivateKey(userId: string, keyId: string): string {
-    const randomData = Array.from({length: 8}, () => 
-      Array.from({length: 40}, () => 
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
-          .charAt(Math.floor(Math.random() * 64))
-      ).join('')
-    ).join('\n');
-
-    return `-----BEGIN PGP PRIVATE KEY BLOCK-----
-Version: RPGP Post-Quantum v1.0
-Comment: Dilithium5 + Kyber1024 Post-Quantum Private Key
-
-lQOYBGaidnEWCSsGAQQB2kcPAQEHQE8${keyId.slice(0, 8)}Dilithium5Private${keyId.slice(8)}
-${randomData}
-AA/${keyId.slice(0, 16)}PostQuantumPrivateKey${keyId.slice(16)}sBAP4${keyId.slice(0, 12)}
-M2K7VqPH+O4cJ${keyId.slice(0, 8)}PostQuantumPrivate${keyId.slice(8)}R6uY=
-=${keyId.slice(0, 4)}==
------END PGP PRIVATE KEY BLOCK-----`;
   }
 
   async getPublicKey(keyId: string): Promise<RpgpPublicKey | undefined> {
-    return storageService.getPublicKey(keyId) || undefined;
+    // First try to get from local storage
+    const storedKey = storageService.getPublicKey(keyId);
+    if (storedKey) {
+      return storedKey;
+    }
+
+    // If not in storage, try WASM module (for keys generated in current session)
+    await this.initializeWasm();
+    
+    if (!this.wasm) {
+      return undefined;
+    }
+
+    try {
+      const result = await this.wasm.get_public_key(keyId);
+      
+      return {
+        keyId: result.key_id,
+        fingerprint: result.fingerprint,
+        userId: result.user_id,
+        algorithm: result.algorithm,
+        publicKeyArmored: result.public_key_armored,
+        createdAt: new Date(result.created_at),
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   async getAllPublicKeys(): Promise<RpgpPublicKey[]> {
-    return storageService.getAllPublicKeys();
+    // Get keys from storage
+    const storedKeys = storageService.getAllPublicKeys();
+    
+    // Also get any keys from current WASM session
+    await this.initializeWasm();
+    
+    if (this.wasm) {
+      try {
+        const wasmKeys = await this.wasm.get_all_public_keys();
+        const wasmKeyList: RpgpPublicKey[] = wasmKeys.map((result: any) => ({
+          keyId: result.key_id,
+          fingerprint: result.fingerprint,
+          userId: result.user_id,
+          algorithm: result.algorithm,
+          publicKeyArmored: result.public_key_armored,
+          createdAt: new Date(result.created_at),
+        }));
+
+        // Merge and deduplicate
+        const allKeys = [...storedKeys];
+        for (const wasmKey of wasmKeyList) {
+          if (!allKeys.find(k => k.keyId === wasmKey.keyId)) {
+            allKeys.push(wasmKey);
+          }
+        }
+        
+        return allKeys;
+      } catch (error) {
+        console.warn('Failed to get keys from WASM session:', error);
+      }
+    }
+    
+    return storedKeys;
   }
 
   async encryptMessage(params: EncryptParams): Promise<string> {
-    console.log('🔒 Encrypting with Kyber1024 post-quantum encryption...');
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+    await this.initializeWasm();
     
-    const encryptedData = btoa(params.plaintext);
-    
-    return `-----BEGIN PGP MESSAGE-----
-Version: RPGP Post-Quantum v1.0
-Comment: Kyber1024 Encrypted Message
+    if (!this.wasm) {
+      throw new Error('RPGP WebAssembly module not initialized');
+    }
 
-hQEMA${params.recipientKeyIds[0]?.slice(0, 8) || 'DEFAULT12'}PostQuantumKyber1024
-${encryptedData}PostQuantumEncrypted
-=${params.recipientKeyIds[0]?.slice(0, 4) || 'TEST'}==
------END PGP MESSAGE-----`;
+    if (!params.plaintext.trim()) {
+      throw new Error('Message cannot be empty');
+    }
+
+    if (params.recipientKeyIds.length === 0) {
+      throw new Error('At least one recipient key is required');
+    }
+
+    try {
+      const ciphertext = await this.wasm.encrypt_message({
+        recipient_key_ids: params.recipientKeyIds,
+        plaintext: params.plaintext,
+      });
+
+      return ciphertext;
+    } catch (error) {
+      console.error('Encryption failed:', error);
+      throw new Error(`Failed to encrypt message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async decryptMessage(params: DecryptParams): Promise<string> {
-    console.log('🔓 Decrypting with Kyber1024 post-quantum decryption...');
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+    await this.initializeWasm();
     
-    if (params.ciphertext.includes('-----BEGIN PGP MESSAGE-----')) {
-      return 'This is your decrypted message using post-quantum Kyber1024 encryption!';
+    if (!this.wasm) {
+      throw new Error('RPGP WebAssembly module not initialized');
     }
-    throw new Error('Invalid ciphertext format');
+
+    if (!params.ciphertext.trim()) {
+      throw new Error('Ciphertext cannot be empty');
+    }
+
+    if (!params.passphrase) {
+      throw new Error('Passphrase is required for decryption');
+    }
+
+    // Check if we have the private key in storage
+    if (!storageService.hasPrivateKey(params.privateKeyId)) {
+      throw new Error('Private key not found. You may need to import the private key first.');
+    }
+
+    try {
+      // Retrieve the private key from storage
+      const privateKeyArmored = await storageService.retrievePrivateKey(params.privateKeyId, params.passphrase);
+      
+      if (!privateKeyArmored) {
+        throw new Error('Failed to decrypt private key. Please check your passphrase.');
+      }
+
+      const plaintext = await this.wasm.decrypt_message({
+        private_key_id: params.privateKeyId,
+        passphrase: params.passphrase,
+        ciphertext: params.ciphertext,
+      });
+
+      return plaintext;
+    } catch (error) {
+      console.error('Decryption failed:', error);
+      if (error instanceof Error && error.message.includes('passphrase')) {
+        throw new Error('Incorrect passphrase or corrupted private key');
+      }
+      throw new Error(`Failed to decrypt message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async signMessage(params: SignParams): Promise<string> {
-    console.log('✍️ Signing with Dilithium5 post-quantum signature...');
-    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 2000));
+    await this.initializeWasm();
     
-    return `-----BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA512
+    if (!this.wasm) {
+      throw new Error('RPGP WebAssembly module not initialized');
+    }
 
-${params.message}
------BEGIN PGP SIGNATURE-----
-Version: RPGP Post-Quantum v1.0
-Comment: Dilithium5 Digital Signature
+    if (!params.message.trim()) {
+      throw new Error('Message cannot be empty');
+    }
 
-iHgEARYKACAWIQTLvQdlcTzKwKNcUlRn${params.privateKeyId.slice(0, 8)}FgUCZqJ2cQIbAwAKCRBU
-ZwlDYfxYFtOsAP9${params.privateKeyId.slice(0, 12)}Dilithium5Signature8BAP4kM2K7VqPH+O4cJ
-${params.message.slice(0, 8)}PostQuantumSig${params.privateKeyId.slice(8)}R6uY=
-=${params.privateKeyId.slice(0, 4)}==
------END PGP SIGNATURE-----`;
+    if (!params.passphrase) {
+      throw new Error('Passphrase is required for signing');
+    }
+
+    // Check if we have the private key
+    if (!storageService.hasPrivateKey(params.privateKeyId)) {
+      throw new Error('Private key not found. You may need to import the private key first.');
+    }
+
+    try {
+      // Retrieve the private key from storage
+      const privateKeyArmored = await storageService.retrievePrivateKey(params.privateKeyId, params.passphrase);
+      
+      if (!privateKeyArmored) {
+        throw new Error('Failed to decrypt private key. Please check your passphrase.');
+      }
+
+      const signedMessage = await this.wasm.sign_message({
+        private_key_id: params.privateKeyId,
+        passphrase: params.passphrase,
+        message: params.message,
+      });
+
+      return signedMessage;
+    } catch (error) {
+      console.error('Signing failed:', error);
+      if (error instanceof Error && error.message.includes('passphrase')) {
+        throw new Error('Incorrect passphrase or corrupted private key');
+      }
+      throw new Error(`Failed to sign message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async createDetachedSignature(params: SignParams): Promise<string> {
-    console.log('✍️ Creating detached Dilithium5 signature...');
-    await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 2000));
+    await this.initializeWasm();
     
-    return `-----BEGIN PGP SIGNATURE-----
-Version: RPGP Post-Quantum v1.0
-Comment: Dilithium5 Detached Signature
+    if (!this.wasm) {
+      throw new Error('RPGP WebAssembly module not initialized');
+    }
 
-iHgEARYKACAWIQTLvQdlcTzKwKNcUlRn${params.privateKeyId.slice(0, 8)}FgUCZqJ2cQIbAwAKCRBU
-ZwlDYfxYFtOsAP9${params.privateKeyId.slice(0, 12)}DetachedDilithium5Sig8BAP4kM2K7VqPH+O4cJ
-${params.message.slice(0, 8)}PostQuantumDetached${params.privateKeyId.slice(8)}R6uY=
-=${params.privateKeyId.slice(0, 4)}==
------END PGP SIGNATURE-----`;
+    if (!params.message.trim()) {
+      throw new Error('Message cannot be empty');
+    }
+
+    if (!params.passphrase) {
+      throw new Error('Passphrase is required for signing');
+    }
+
+    // Check if we have the private key
+    if (!storageService.hasPrivateKey(params.privateKeyId)) {
+      throw new Error('Private key not found. You may need to import the private key first.');
+    }
+
+    try {
+      // Retrieve the private key from storage
+      const privateKeyArmored = await storageService.retrievePrivateKey(params.privateKeyId, params.passphrase);
+      
+      if (!privateKeyArmored) {
+        throw new Error('Failed to decrypt private key. Please check your passphrase.');
+      }
+
+      const signature = await this.wasm.create_detached_signature({
+        private_key_id: params.privateKeyId,
+        passphrase: params.passphrase,
+        message: params.message,
+      });
+
+      return signature;
+    } catch (error) {
+      console.error('Detached signature creation failed:', error);
+      if (error instanceof Error && error.message.includes('passphrase')) {
+        throw new Error('Incorrect passphrase or corrupted private key');
+      }
+      throw new Error(`Failed to create detached signature: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async verifyMessage(params: VerifyParams): Promise<{isValid: boolean, message: string}> {
-    console.log('🔍 Verifying Dilithium5 signature...');
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1500));
+    await this.initializeWasm();
     
-    const isValid = params.signature.includes('-----BEGIN PGP SIGNATURE-----') 
-      && params.signature.includes('Dilithium5');
-    
-    return {
-      isValid,
-      message: isValid 
-        ? '✅ Signature verified successfully with Dilithium5 post-quantum cryptography'
-        : '❌ Signature verification failed'
-    };
+    if (!this.wasm) {
+      throw new Error('RPGP WebAssembly module not initialized');
+    }
+
+    if (!params.message.trim() || !params.signature.trim()) {
+      throw new Error('Both message and signature are required');
+    }
+
+    try {
+      const result = await this.wasm.verify_message({
+        signer_key_id: params.signerKeyId,
+        message: params.message,
+        signature: params.signature,
+      });
+
+      return {
+        isValid: result.is_valid,
+        message: result.message,
+      };
+    } catch (error) {
+      console.error('Verification failed:', error);
+      return {
+        isValid: false,
+        message: `Verification failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
+    }
   }
 
+  // Additional utility methods
   async isInitialized(): Promise<boolean> {
     try {
       await this.initializeWasm();
-      return true;
+      return this.wasm !== null;
     } catch {
       return false;
     }
