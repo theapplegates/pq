@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Image Test - img_srcset</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .image-container {
+            margin: 2rem 0;
+        }
+        img, picture {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+            border-radius: 4px;
+        }
+        .responsive-bg {
+            width: 100%;
+            height: 400px;
+            margin: 2rem 0;
+            border-radius: 4px;
+        }
+        .info {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            margin: 1rem 0;
+            font-size: 0.9em;
+        }
+        code {
+            background: #e9ecef;
+            padding: 0.2em 0.4em;
+            border-radius: 3px;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Responsive Image Test: Img Srcset</h1>
+        
+        <div class="info">
+            <strong>Original:</strong> dog<br>
+            <strong>Dimensions:</strong> 1538 × 865px<br>
+            <strong>Size:</strong> 283.0 KB<br>
+            <strong>Format:</strong> jpg<br>
+            <strong>Public ID:</strong> <code>ldjeembs7t75d6iqdoix</code>
+        </div>
+        
+        <div class="image-container">
+            <img srcset="https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_200/v1750257084/ldjeembs7t75d6iqdoix 200w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_506/v1750257084/ldjeembs7t75d6iqdoix 506w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_779/v1750257084/ldjeembs7t75d6iqdoix 779w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_844/v1750257084/ldjeembs7t75d6iqdoix 844w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1099/v1750257084/ldjeembs7t75d6iqdoix 1099w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1125/v1750257084/ldjeembs7t75d6iqdoix 1125w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1362/v1750257084/ldjeembs7t75d6iqdoix 1362w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1538/v1750257084/ldjeembs7t75d6iqdoix 1538w"
+     sizes="(max-width: 480px) 100vw, (max-width: 768px) 90vw, (max-width: 1200px) 60vw, 50vw"
+     src="https://res.cloudinary.com/paulapplegate-com/image/upload/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+     alt="dog"
+     loading="lazy"
+     decoding="async">
+        </div>
+        
+        <p><strong>Instructions:</strong> Resize your browser window to see the responsive behavior. 
+        Open Developer Tools → Network tab to see which image sizes are loaded at different viewport widths.</p>
+        
+        <details>
+            <summary>View HTML Source</summary>
+            <pre><code>&lt;img srcset="https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_200/v1750257084/ldjeembs7t75d6iqdoix 200w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_506/v1750257084/ldjeembs7t75d6iqdoix 506w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_779/v1750257084/ldjeembs7t75d6iqdoix 779w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_844/v1750257084/ldjeembs7t75d6iqdoix 844w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1099/v1750257084/ldjeembs7t75d6iqdoix 1099w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1125/v1750257084/ldjeembs7t75d6iqdoix 1125w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1362/v1750257084/ldjeembs7t75d6iqdoix 1362w,
+       https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_webp,g_auto,q_auto:best,w_1538/v1750257084/ldjeembs7t75d6iqdoix 1538w"
+     sizes="(max-width: 480px) 100vw, (max-width: 768px) 90vw, (max-width: 1200px) 60vw, 50vw"
+     src="https://res.cloudinary.com/paulapplegate-com/image/upload/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+     alt="dog"
+     loading="lazy"
+     decoding="async"&gt;</code></pre>
+        </details>
+    </div>
+</body>
+</html>

@@ -1,0 +1,117 @@
+{
+  "asset_id": "74a3c6cae40bc4acc391f8da7f51daee",
+  "public_id": "ldjeembs7t75d6iqdoix",
+  "version": 1750257084,
+  "version_id": "1985762e214c1d1ece72cea54eee59c0",
+  "signature": "56c7ef295cf6fb34e9775310c9878984d37cfee4",
+  "width": 1538,
+  "height": 865,
+  "format": "jpg",
+  "resource_type": "image",
+  "created_at": "2025-06-18T14:31:24Z",
+  "tags": [],
+  "pages": 1,
+  "bytes": 289768,
+  "type": "upload",
+  "etag": "eeba8abc7dbe881b73b200be327a643a",
+  "placeholder": false,
+  "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+  "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+  "folder": "",
+  "access_mode": "public",
+  "coordinates": {
+    "faces": [
+      [
+        469,
+        111,
+        328,
+        431
+      ]
+    ]
+  },
+  "original_filename": "dog",
+  "eager": [
+    {
+      "transformation": "c_fill,g_auto,h_300,q_auto:best,w_400/webp",
+      "width": 400,
+      "height": 300,
+      "bytes": 19716,
+      "format": "webp",
+      "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_fill,g_auto,h_300,q_auto:best,w_400/v1750257084/ldjeembs7t75d6iqdoix.webp",
+      "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_fill,g_auto,h_300,q_auto:best,w_400/v1750257084/ldjeembs7t75d6iqdoix.webp"
+    },
+    {
+      "transformation": "c_fill,g_auto,h_600,q_auto:best,w_800/avif",
+      "width": 800,
+      "height": 600,
+      "bytes": 39743,
+      "format": "avif",
+      "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_fill,g_auto,h_600,q_auto:best,w_800/v1750257084/ldjeembs7t75d6iqdoix.avif",
+      "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_fill,g_auto,h_600,q_auto:best,w_800/v1750257084/ldjeembs7t75d6iqdoix.avif"
+    }
+  ],
+  "responsive_breakpoints": [
+    {
+      "breakpoints": [
+        {
+          "width": 1538,
+          "height": 865,
+          "bytes": 163601,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1538/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1538/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        },
+        {
+          "width": 1362,
+          "height": 766,
+          "bytes": 148458,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1362/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1362/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        },
+        {
+          "width": 1099,
+          "height": 618,
+          "bytes": 111421,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1099/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1099/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        },
+        {
+          "width": 1125,
+          "height": 633,
+          "bytes": 97535,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1125/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_1125/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        },
+        {
+          "width": 844,
+          "height": 475,
+          "bytes": 72187,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_844/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_844/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        },
+        {
+          "width": 779,
+          "height": 438,
+          "bytes": 63163,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_779/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_779/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        },
+        {
+          "width": 506,
+          "height": 285,
+          "bytes": 32360,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_506/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_506/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        },
+        {
+          "width": 200,
+          "height": 112,
+          "bytes": 9421,
+          "url": "http://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_200/v1750257084/ldjeembs7t75d6iqdoix.jpg",
+          "secure_url": "https://res.cloudinary.com/paulapplegate-com/image/upload/c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto/c_scale,w_200/v1750257084/ldjeembs7t75d6iqdoix.jpg"
+        }
+      ],
+      "transformation": "c_limit,dpr_auto,f_auto,g_auto,q_auto:best,w_auto"
+    }
+  ],
+  "api_key": "329649954727839"
+}
